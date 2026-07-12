@@ -1,0 +1,39 @@
+# ===== CRÍTICO: nunca subir datos privados =====
+# Fichero de configuración con TUS credenciales y datos del robot
+.env
+
+# Certificados TLS (los tuyos)
+cert.pem
+key.pem
+*.pem
+*.key
+*.crt
+
+# ===== Capturas de tráfico (contienen datos privados del robot/red) =====
+cap_*.log
+*.log
+mitm_full.log
+cap_mitm_full.log
+cap_comandos.log
+
+# ===== Mapas reales de tu casa (privacidad física) =====
+# Sube solo mapa_ejemplo.png (sintético). El mapa real NO.
+mapa_conga.png
+mapa_real*.png
+mapa_descomprimido.bin
+*.bin
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ===== Sistema / editores =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
