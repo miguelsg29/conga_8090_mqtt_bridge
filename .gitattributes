@@ -1,0 +1,3 @@
+# Los scripts de shell deben conservar saltos de linea LF aunque git corra en
+# Windows (si no, el \r rompe la ejecucion en bash/HA).
+*.sh text eol=lf

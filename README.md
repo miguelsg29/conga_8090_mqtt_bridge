@@ -23,7 +23,10 @@ Este proyecto tiene dos repositorios complementarios:
   quieres instalarlo y usarlo en HA, ve directo al add-on.
 
 Ambos comparten el mismo puente (`conga_mqtt_bridge.py`); este repo lo explica y
-documenta, el add-on lo empaqueta para instalación en un clic.
+documenta, el add-on lo empaqueta para instalación en un clic. Este repo es la
+**fuente de la verdad** del puente: cuando lo cambies aquí, ejecuta `./sync_bridge.sh`
+(con el add-on clonado al lado) para copiarlo al add-on y que no se desfasen; luego
+sube versión y `CHANGELOG.md` en el add-on.
 
 ## Estado del proyecto: FUNCIONAL ✅
 
@@ -48,6 +51,7 @@ documenta, el add-on lo empaqueta para instalación en un clic.
 | `conga_mqtt_bridge.py` | **El puente final.** Conecta el robot con Home Assistant vía MQTT. Es lo que se ejecuta en producción. |
 | `GUIA_MQTT_HomeAssistant.md` | Guía de instalación y uso del puente MQTT. |
 | `plans.example.json` | Plantilla de **horarios por habitación** (`setOrder6090`). Cópiala a `plans.json` y edítala. |
+| `sync_bridge.sh` | Copia el puente a este repo → al del **add-on** (para no desfasarlos). |
 | `decodificar_mapa.py` | Decodificador del mapa (zlib+Protobuf → PNG + habitaciones). |
 | `mapa_ejemplo.png` | Render de EJEMPLO (casa ficticia) que muestra qué produce el decodificador. |
 | `servidor_conga.py` | Servidor mínimo (Fase 1). Solo mantiene la conexión. Histórico. |
