@@ -1,0 +1,38 @@
+{
+  "_comment": "Copia este fichero a plans.json y edítalo. Cada plan es un horario que el robot ejecutará solo (comando setOrder6090). El puente crea en Home Assistant un interruptor por plan (activar/desactivar) más botones 'Sincronizar' y 'Consultar' horarios.",
+  "_ayuda": {
+    "id": "identificador único e interno del plan (no cambiarlo: de él sale el orderid estable para activar/desactivar/borrar el mismo plan).",
+    "name": "nombre visible en la app y en Home Assistant.",
+    "enable": "true = activo, false = guardado pero desactivado.",
+    "time": "hora HH:MM (24h). Ej. '20:12'.",
+    "days": "días de la semana: dom, lun, mar, mie, jue, vie, sab (también valen 'jueves', 'Thu'...). Lista = varios días.",
+    "rooms": "habitaciones a limpiar, cada una con su modo. 'room' es el id del mapa (10-16). fan=Off/Eco/Normal/Turbo, water=Off/Bajo/Medio/Alto, mop=Off/Estándar/Fuerte/Potente, twice=doble pasada."
+  },
+  "plans": [
+    {
+      "id": "plan_pruebas",
+      "name": "Plan pruebas",
+      "enable": true,
+      "time": "20:12",
+      "days": ["jue"],
+      "rooms": [
+        {"room": 11, "fan": "Turbo",  "water": "Alto", "mop": "Potente"},
+        {"room": 14, "fan": "Normal", "water": "Bajo", "mop": "Fuerte"},
+        {"room": 16, "fan": "Turbo",  "water": "Bajo", "mop": "Potente"},
+        {"room": 13, "fan": "Turbo",  "water": "Alto", "mop": "Potente"},
+        {"room": 15, "fan": "Normal", "water": "Bajo", "mop": "Fuerte"}
+      ]
+    },
+    {
+      "id": "noche_entre_semana",
+      "name": "Noche entre semana",
+      "enable": false,
+      "time": "22:30",
+      "days": ["lun", "mar", "mie", "jue", "vie"],
+      "rooms": [
+        {"room": 13, "fan": "Turbo",  "water": "Alto",  "mop": "Potente", "twice": true},
+        {"room": 15, "fan": "Normal", "water": "Medio", "mop": "Estándar"}
+      ]
+    }
+  ]
+}

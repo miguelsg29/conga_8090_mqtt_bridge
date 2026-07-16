@@ -33,7 +33,12 @@ documenta, el add-on lo empaqueta para instalación en un clic.
 - ✅ Nivel de batería
 - ✅ Entidad `vacuum` nativa en Home Assistant (vía MQTT autodiscovery)
 - ✅ Mapa decodificado con las 7 habitaciones etiquetadas
-- ⬜ (opcional) Mapa como cámara en HA, limpieza por habitaciones, servicio permanente
+- ✅ Limpieza inmediata por habitación (botones "Limpiar &lt;habitación&gt;")
+- ✅ Horarios programados con modo por habitación (`setOrder6090`, vía `plans.json`)
+- ✅ "No molestar" configurable (interruptor + franja horaria)
+- ✅ Controles extra en HA: vaciar base, turbo en alfombras, tipo de base, modo de
+  limpieza, voz + volumen, actualizaciones automáticas (OTA), sensores de consumibles
+- ⬜ (opcional) Mapa como cámara en HA, zonas prohibidas/limpieza desde HA, servicio permanente
 
 ## Ficheros del proyecto
 
@@ -42,6 +47,7 @@ documenta, el add-on lo empaqueta para instalación en un clic.
 | `Conga8090_Protocolo.md` | **Especificación completa** del protocolo (transporte, JSON, comandos, estados, mapa). El documento de referencia. |
 | `conga_mqtt_bridge.py` | **El puente final.** Conecta el robot con Home Assistant vía MQTT. Es lo que se ejecuta en producción. |
 | `GUIA_MQTT_HomeAssistant.md` | Guía de instalación y uso del puente MQTT. |
+| `plans.example.json` | Plantilla de **horarios por habitación** (`setOrder6090`). Cópiala a `plans.json` y edítala. |
 | `decodificar_mapa.py` | Decodificador del mapa (zlib+Protobuf → PNG + habitaciones). |
 | `mapa_ejemplo.png` | Render de EJEMPLO (casa ficticia) que muestra qué produce el decodificador. |
 | `servidor_conga.py` | Servidor mínimo (Fase 1). Solo mantiene la conexión. Histórico. |
@@ -144,6 +150,32 @@ Deja `cert.pem` y `key.pem` junto a los scripts. (Tampoco se suben a git.)
 `DEFAULT_FAN`, `DEFAULT_WATER`, `DEFAULT_MOP`, `DEFAULT_TWICE` definen la
 configuración por defecto para la limpieza por habitación. Todos tienen un valor
 sensato por defecto.
+
+### Horarios programados por habitación (`plans.json`)
+
+El robot puede ejecutar solo, a la hora y días que quieras, una limpieza con el
+**modo propio de cada habitación** (comando `setOrder6090`). Se configura en un
+fichero `plans.json` (privado, no se sube a git). Copia `plans.example.json` a
+`plans.json` y define tus planes:
+
+```json
+{"plans": [
+  {"id": "noche", "name": "Noche", "enable": true, "time": "22:30",
+   "days": ["lun","mar","mie","jue","vie"],
+   "rooms": [
+     {"room": 13, "fan": "Turbo",  "water": "Alto", "mop": "Potente", "twice": true},
+     {"room": 15, "fan": "Normal", "water": "Bajo", "mop": "Estándar"}
+   ]}
+]}
+```
+
+- `time` en `HH:MM`; `days` con `dom/lun/mar/mie/jue/vie/sab`; `room` es el id del
+  mapa (10-16). `fan`/`water`/`mop` usan las mismas escalas que los selectores.
+- En Home Assistant aparece **un interruptor por plan** (activar/desactivar) y los
+  botones **"Sincronizar horarios"** (empuja los planes al robot) y **"Consultar
+  horarios"** (lista los guardados en el log).
+- El puente detecta solo el `map_head_id` del robot; si quieres sincronizar antes de
+  que el robot reporte, puedes fijar `MAP_HEAD_ID` en el `.env`.
 
 ## Subir a GitHub (paso a paso, sin experiencia previa)
 

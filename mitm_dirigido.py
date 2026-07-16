@@ -21,8 +21,16 @@ Los comandos de control se muestran en consola con >>> y se guardan en
 cap_comandos.log (solo los control, limpio). Todo el trafico va a cap_mitm_full.log
 """
 
-import socket, ssl, threading, hashlib, base64, struct, os, json
+import socket, ssl, threading, hashlib, base64, struct, os, json, sys
 from datetime import datetime
+
+# Salida en UTF-8: en Windows (cp1252) imprimir "✓" lanzaba UnicodeEncodeError y
+# tiraba la conexion del robot. Con esto los prints nunca fallan.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 ROBOT_LISTEN_PORT = 9090
 CLOUD_IP = "43.158.121.228"      # IP real de tcp-cecotec.3irobotix.net

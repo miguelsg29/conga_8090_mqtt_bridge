@@ -2,6 +2,9 @@
 # Fichero de configuración con TUS credenciales y datos del robot
 .env
 
+# Horarios propios (distribución de tu casa). Sube solo plans.example.json
+plans.json
+
 # Certificados TLS (los tuyos)
 cert.pem
 key.pem
@@ -22,6 +25,9 @@ mapa_conga.png
 mapa_real*.png
 mapa_descomprimido.bin
 *.bin
+
+# ===== Capturas de pantalla de la app (muestran tu casa/mapa/datos) =====
+Capturasdepantalla/
 
 # ===== Python =====
 __pycache__/

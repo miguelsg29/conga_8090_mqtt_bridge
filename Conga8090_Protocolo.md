@@ -383,7 +383,7 @@ en el bridge como botones "Limpiar <habitacion>" en HA.
 **Zona prohibida / pared virtual — RESUELTO (`set_virwall`):**
 ```json
 {"control":"set_virwall","VirwallCount":1,"clean_plan_id":0,
- "virwallList":[{"PointList":[{"PointX":"-8.86","PointY":"7.72"}, ... 4 puntos],
+ "virwallList":[{"PointList":[{"PointX":"-1.20","PointY":"3.40"}, ... 4 puntos],
    "Type":200,"name":"","Count":4,"ID":5445404,"area_type":1}],
  "map_head_id":1702045335,"area_type":1}
 ```
@@ -391,45 +391,206 @@ Define un poligono (4 esquinas con coords X/Y en metros del mapa) como zona
 restringida. `Type:200` = pared virtual/zona prohibida. Requiere coordenadas del
 mapa, mas complejo de exponer en HA (queda documentado).
 
-**Programación con habitaciones — RESUELTO (`setOrder6090`):**
+**Programación con habitaciones — CONFIRMADO Y RESUELTO (captura MITM 16-07-2026).**
 
-Crea/guarda un plan programado con limpieza por habitaciones y ajustes por
-habitacion. Estructura:
+Son TRES comandos que trabajan juntos:
+
+| control | params | Funcion |
+|---|---|---|
+| `setOrder6090` | `{order:{...}}` | Crear/actualizar un plan (o activar/desactivar via `enable`) |
+| `getOrder6090` | `{userid}` | Leer los planes guardados (el robot devuelve `orders:[...]`) |
+| `deleteOrder6090` | `{orderid}` | Borrar un plan por su `orderid` |
+
+Crear/guardar un plan (`setOrder6090`) — estructura REAL capturada:
 
 ```json
 {"control":"setOrder6090","order":{
-  "orderid":1787390233, "order_name":"Plan1",
-  "enable":1, "repeat":1, "weekday":64, "day_time":1170,
-  "mapid":1702045335, "mapName":"Interior",
+  "orderid":1700000001, "order_name":"Plan3",
+  "enable":1, "repeat":1, "weekday":16, "day_time":1212,
+  "mapid":1700000000, "mapName":"Interior",
   "is_global":0, "clean_type":0, "arealist":[], "virwallList":[],
   "roomPer":[
-    {"room_id":13,"room_name":"Cocina","windpower":3,"waterlevel":13,
-     "shake_shift":3,"twiceclean":0,"cleanmode":0,"sweep_mode":0,
-     "carpet":0,"material_type":2,"room_type":2105},
-    {"room_id":16,"room_name":"Pasillo","windpower":2,"waterlevel":11,...},
-    {"room_id":15,"room_name":"Salón","windpower":1,"waterlevel":10,...}
+    {"material_type":2,"room_id":11,"sweep_mode":0,"room_name":"Baño privado",
+     "waterlevel":13,"windpower":3,"carpet":0,"twiceclean":0,"shake_shift":3,
+     "cleanmode":0,"room_type":2103},
+    {"material_type":3,"room_id":14,"room_name":"Dormitorio Principal",
+     "waterlevel":11,"windpower":2,"shake_shift":2,"room_type":2101, ...},
+    {"material_type":3,"room_id":16,"room_name":"Pasillo","waterlevel":11,
+     "windpower":3,"shake_shift":3,"room_type":2104, ...},
+    {"material_type":2,"room_id":13,"room_name":"Cocina","waterlevel":13,
+     "windpower":3,"shake_shift":3,"room_type":2105, ...},
+    {"material_type":3,"room_id":15,"room_name":"Salón","waterlevel":11,
+     "windpower":2,"shake_shift":2,"room_type":2106, ...}
   ]
 }}
 ```
 
-Campos clave del plan:
-- `day_time`: minutos desde medianoche (1170 = 19:30).
-- `weekday`: bitmask de dias. day_time 1170 + weekday 64 coincidio con "sábado
-  19:30" en la app (revisar bit exacto: parece do=64 o sá segun locale).
-- `enable`: 1=activo, 0=desactivado (para borrar/desactivar se reenvia con enable:0).
-- `roomPer`: lista de habitaciones con sus ajustes individuales (potencia, agua,
-  mopa, doble pasada). `room_id` coincide con los ids del mapa (13=Cocina,
-  15=Salón, 16=Pasillo).
-- `twiceclean`: 0/1 doble pasada. `cleanmode`: 0=Auto.
+Campos clave (todo CONFIRMADO cruzando la captura con las acciones en la app):
+- `day_time`: **minutos desde medianoche**. Confirmado: 20:12 → `1212`; 19:30 → `1170`.
+- `weekday`: **bitmask con domingo = bit 0**. Confirmado: "jueves" → `16`; "sábado" → `64`.
+  Tabla: `dom=1 lun=2 mar=4 mie=8 jue=16 vie=32 sab=64`. Varios días = suma de bits.
+- `enable`: 1=activo, 0=desactivado. Para activar/desactivar se reenvía el MISMO
+  `setOrder6090` (mismo `orderid`) cambiando solo `enable`.
+- `orderid`: identificador del plan (la app usa un timestamp-like). Debe ser estable
+  para poder actualizar/borrar el mismo plan.
+- `mapid`: el `map_head_id` del mapa activo (aparece en `report_data`). Cambia si
+  se re-mapea la casa.
+- `roomPer[]`: una entrada por habitación con su modo propio:
+  `windpower` (0-3, misma escala que set_preference ctrltype 1),
+  `waterlevel` (10-13, ctrltype 2), `shake_shift` (0-3, mopa, ctrltype 15),
+  `twiceclean` (0/1 doble pasada), `cleanmode` (0=Auto).
+  `room_type` es un id semántico por habitación (2101=Dorm. Principal, 2103=Baño
+  privado, 2104=Pasillo, 2105=Cocina, 2106=Salón); `material_type` = tipo de suelo.
+  El robot ejecuta por `room_id`; `room_type`/`material_type` son metadatos.
 
-**IMPLICACION IMPORTANTE**: aunque no capturamos un comando directo de "limpia la
-Cocina ahora", el mecanismo de limpieza por habitaciones existe via `roomPer` con
-`room_id`. Se podria disparar una limpieza puntual de habitacion creando un plan
-o via un comando tipo set_mode con arealist/roomPer. Queda como investigacion.
+Leer planes (`getOrder6090` `{userid}`): el robot responde con `orders:[...]`, cada
+plan con los mismos campos más `room_material` (en la lectura) en vez de
+`material_type` (en la escritura). Es como se listan/refrescan los horarios.
 
-Otros descubiertos: `clean_status`, `device_remind`, `get_device_info`,
-`setRoomClean` (limpieza por habitacion), `set_virwall` (zona prohibida),
-`setOrder6090` (programacion).
+Borrar (`deleteOrder6090` `{orderid}`): elimina el plan; un `getOrder6090` posterior
+ya no lo devuelve. Confirmado en la captura.
+
+**IMPLEMENTADO en el puente**: `conga_mqtt_bridge.py` genera estos tres comandos a
+partir de un fichero `plans.json` (ver `plans.example.json`). `build_order()` produce
+un `setOrder6090` byte-idéntico al de la app (verificado contra la captura). En Home
+Assistant aparece un interruptor por plan (activar/desactivar) y botones "Sincronizar"
+y "Consultar" horarios.
+
+**Pendiente (menor)**: limpieza inmediata con modo DISTINTO por habitación en una sola
+pasada. Hoy `setRoomClean` aplica un modo global; el modo por habitación sólo está
+confirmado dentro de un plan (`roomPer`). Si se quiere inmediato+per-room, requiere
+otra captura dirigida (o crear un plan efímero).
+
+**No molestar / modo silencioso (`get_quiet`) — CONFIRMADO (lectura en vivo 16-07-2026).**
+
+Consultando `{"control":"get_quiet","userid":<userid>}`, el robot responde:
+
+```json
+{"quiet_count":1,
+ "quiet_list":[{"quietID":0,"is_open":1,"begin_time":1320,"end_time":420}],
+ "control":"get_quiet"}
+```
+
+- `is_open`: 1 = activado, 0 = desactivado.
+- `begin_time` / `end_time`: **minutos desde medianoche** (misma escala que `day_time`).
+  Confirmado: `1320` = 22:00 (inicio), `420` = 07:00 (fin).
+
+**Importante**: durante la franja de no molestar el robot **aborta la limpieza programada,
+vuelve a la base y NO hace autovaciado**. Un plan `setOrder6090` que se solape con esta
+franja se corta al llegar la hora de inicio (observado: plan a las 21:52 cortado a las
+22:00 con retorno a base). El puente lo detecta como estado `error` momentaneo por el
+faultCode que emite el robot al entrar en silencio.
+
+**Escritura (`set_quiet`) — CONFIRMADO (captura MITM 16-07-2026).** Es el espejo
+exacto de `get_quiet`:
+
+```json
+{"control":"set_quiet","quiet_count":1,
+ "quiet_list":[{"quietID":0,"is_open":1,"begin_time":1395,"end_time":570}]}
+```
+
+Acuse del robot: `{"result":0,"control":"set_quiet","did":<did>}`. Confirmado pulsando
+en la app: cambiar la franja a 23:15-09:30 genero `begin_time:1395`, `end_time:570`.
+Para desactivar el no molestar basta con `is_open:0` (mismos begin/end).
+
+**IMPLEMENTADO en el puente**: `send_set_quiet()` genera este comando (verificado
+byte-identico a la captura). En Home Assistant hay un interruptor **"Conga No molestar"**
+y dos campos de texto **"No molestar inicio"/"fin"** (HH:MM). El puente lee el estado con
+`get_quiet` al conectar y lo refleja en HA.
+
+---
+
+## 5.9 Catálogo completo de comandos (captura dirigida 16-07-2026)
+
+Sesión de captura MITM pulsando cada opción en la app oficial. Todo CONFIRMADO en vivo
+con acuse `result:0` del robot.
+
+### set_mode — TIPOS de limpieza (con `value:4` = seleccionar modo)
+
+`{"control":"set_mode","mapid":0,"type":<T>,"value":4}` selecciona el modo antes de
+arrancar. Confirmado pulsando cada modo (el robot ACK con `ctrltype:<T>`):
+
+| type | Modo |
+|---|---|
+| 0 | Auto |
+| 14 | Limpieza completa |
+| 2 | Fregado |
+| 1 | Bordes |
+| 5 | Espiral |
+| 15 | Espiral cuadrada |
+| 6 | Punto (spot; el robot manda `device_remind type:2008`) |
+
+El modo **"Área"** no usa `set_mode`: se define con `set_area` (ver abajo). Combinaciones
+de acción (`value` != 4) siguen como en §5.1 (0/1=iniciar, 2/2=pausa, 2/1=reanudar,
+3/1=base, 3/0=cancelar base).
+
+### set_preference — tabla de `ctrltype` COMPLETA
+
+`{"control":"set_preference","ctrltype":<CT>,"value":<V>}` (lectura con `get_preference`):
+
+| ctrltype | Ajuste | Valores |
+|---|---|---|
+| 1 | Potencia succión | 0=Off 1=Eco 2=Normal 3=Turbo |
+| 2 | Nivel de agua | 10=Off 11=Bajo 12=Medio 13=Alto |
+| 3 | **Doble pasada / x2** | 0/1 |
+| 5 | **Turbo en alfombras** | 0/1 |
+| 15 | Vibración mopa | 0=Off 1=Estándar 2=Fuerte 3=Potente |
+| 16 | **Intervalo de autovaciado** (min) | lectura `dust_collect_interval_min` |
+| 17 | **Tipo de base** | 0=Base de carga, 1=Colector de polvo automático |
+
+### Voz y volumen
+
+- `{"control":"set_voice","voiceMode":<0/1>,"volume":<0-10>}` — voz on/off + volumen
+  (0=mudo … 10=máx). Lectura: `get_voice` → `{voiceMode, volume}`.
+- `{"control":"setVoiceType","Voice":<N>}` — idioma/pack de voz (la unidad de prueba = 3).
+
+### Autovaciado y base
+
+- `{"control":"set_dust_action","action":1}` — **vaciar la base ahora** (autovaciado manual).
+- Tipo de base y su intervalo: `set_preference` ctrltype 17 y 16 (arriba).
+
+### Actualizaciones OTA (importante para blindar la integración local)
+
+- `{"control":"set_upgrade_config","auto_upgrade":<0/1>}` — 0 desactiva las OTA. Lectura:
+  `get_upgrade_config` → `{auto_upgrade}`. **Recomendado 0** para que el robot no se
+  auto-actualice y rompa el protocolo reverseado.
+
+### Consumibles
+
+- `get_consumables {userid}` → `{main_brush, side_brush, filter, dishcloth}` (vida de
+  cepillo central/lateral, filtro y mopa/paño). Base para sensores en HA.
+
+### Zonas (poligonos con coords en METROS del mapa; `Count` = nº de puntos)
+
+Estructura común: `{VirwallCount:N, clean_plan_id:0, virwallList:[{PointList:[{PointX,
+PointY}...], Type, name, Count, ID, area_type}], map_head_id, area_type}`.
+**Gestión = reemplazo de lista completa** (para borrar una, reenviar la lista sin ella;
+lista vacía `VirwallCount:0` = borrar todas).
+
+- `set_virwall` — **zonas restringidas**: `Type:200` = **prohibida (no-go)**;
+  `Type:301` = **sin fregona (no-mop)**.
+- `set_area` — **zonas de limpieza**: `Type:200` = 1 pasada; `Type:201` = 2 pasadas (x2).
+  Con `area_type:1` en la zona = área temporal para limpieza puntual.
+
+### Mapa y habitaciones
+
+- `setPlanData6090 {mapid, mapName, roomInfo:[{roomID, roomName, roomTypeId,
+  roomMaterialId, cleanStatus}]}` — guarda la config de habitaciones. Da la lista real
+  de habitaciones (el puente podría leer nombres/tipos de aquí en vez de fijarlos).
+  - `roomTypeId`: categoría semántica (Dormitorio=2101, Baño=2103, Pasillo=2104,
+    Cocina=2105, Salón=2106, Comedor=2002…); editable.
+  - `roomMaterialId` (**tipo de suelo**): **1=Suave, 2=Azulejos, 3=Madera, 4=Alfombra**
+    (1 y 3 confirmados directamente; 2/4 por eliminación y contexto).
+- `splitRoom {mapId, roomId, startX/Y, endX/Y}` — divide una habitación por una línea
+  (el trozo nuevo recibe un id nuevo).
+- `mergeRoom {mapId, roomsId:[...]}` — une los ids indicados.
+- `setMapAngle {angle}` — rota el mapa (0/90/180/270).
+- `selectMapPlan {mapid, planid, type}` — selecciona el plan de mapa activo.
+- `set_time {timezone, time}` — pone el reloj del robot (timezone en segundos: 7200=UTC+2;
+  time = epoch Unix). Útil si el reloj del robot se desajustara.
+
+Otros observados: `clean_status`, `device_remind` (avisos del robot), `get_device_info`
+(wifi/versión), `setRoomClean` (limpieza inmediata por habitación, §5.8).
 
 Pendientes (menores):
 - **Limpieza rapida** (boton "Limpieza rapida x1" de la app): probablemente
